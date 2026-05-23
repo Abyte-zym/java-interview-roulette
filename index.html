@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎰 Java面试大转盘 | 轮盘抽题</title>
+<meta name="description" content="Java面试前玩一把！旋转大转盘随机抽题，测测你今天的手气。上千次面试实战总结，每题带标准答案。">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:linear-gradient(135deg,#1a1a2e,#16213e);color:#e0e0e0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+h1{font-size:2em;color:#facc15;margin-bottom:8px;text-shadow:0 0 20px rgba(250,204,21,0.3)}
+.sub{color:#94a3b8;margin-bottom:30px;text-align:center}
+.wheel-container{position:relative;width:320px;height:320px;margin:0 auto 30px}
+canvas{width:100%;height:100%}
+.pointer{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:2em;z-index:10}
+.btn{background:linear-gradient(135deg,#facc15,#eab308);color:#1a1a2e;border:none;padding:14px 40px;font-size:1.1em;font-weight:bold;border-radius:50px;cursor:pointer;margin:10px;transition:all .2s}
+.btn:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(250,204,21,0.4)}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.result{background:rgba(30,41,59,0.9);border-radius:16px;padding:24px;max-width:500px;width:100%;margin:20px 0;border:2px solid #facc15;display:none;text-align:center}
+.result h3{color:#facc15;font-size:1.2em;margin-bottom:12px}
+.result .topic{color:#4ade80;font-size:0.9em;margin-bottom:12px}
+.result .answer{color:#e0e0e0;line-height:1.8;font-size:0.95em}
+.stats{display:flex;gap:20px;justify-content:center;margin:20px 0;flex-wrap:wrap}
+.stat{background:rgba(30,41,59,0.7);padding:12px 20px;border-radius:12px;text-align:center}
+.stat .num{font-size:1.5em;color:#facc15;font-weight:bold}
+.stat .label{font-size:0.8em;color:#94a3b8}
+.marketing{background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.2);border-radius:12px;padding:16px;text-align:center;margin-top:20px;max-width:500px;width:100%}
+.marketing a{color:#facc15;text-decoration:none;font-weight:bold}
+.shop-btn{background:linear-gradient(135deg,#4ade80,#22c55e);color:#1a1a2e}
+</style>
+</head>
+<body>
+
+<h1>🎰 Java面试大转盘</h1>
+<p class="sub">上千次面试实战总结 · 旋转轮盘随机抽题<br>测测你今天的手气！</p>
+
+<div class="stats">
+  <div class="stat"><div class="num" id="spinCount">0</div><div class="label">今日旋转</div></div>
+  <div class="stat"><div class="num" id="streak">0</div><div class="label">连续打卡</div></div>
+</div>
+
+<div class="wheel-container">
+  <div class="pointer">▼</div>
+  <canvas id="wheel" width="320" height="320"></canvas>
+</div>
+
+<button class="btn" id="spinBtn" onclick="spin()">🎰 开始旋转!</button>
+<div class="result" id="result">
+  <h3 id="questionText"></h3>
+  <div class="topic" id="topicText"></div>
+  <div class="answer" id="answerText"></div>
+  <button class="btn" onclick="document.getElementById('result').style.display='none';document.getElementById('spinBtn').disabled=false" style="margin-top:16px">🔄 再来一次</button>
+</div>
+
+<div class="marketing">
+  <p>🎯 想要系统准备？访问 <a href="https://Abyte-zym.github.io/arsenal/" target="_blank">Java面试弹药库</a></p>
+  <p style="font-size:0.85em;color:#94a3b8;margin-top:6px">40+免费工具 · 商店¥9.9起 · 上千次沟通实战总结</p>
+  <button class="btn shop-btn" onclick="window.open('https://Abyte-zym.github.io/arsenal/shop.html')" style="margin-top:12px">🛒 装备商店 ¥9.9起</button>
+</div>
+
+<!-- 赞赏码 -->
+<div style="text-align:center;margin-top:20px">
+  <p style="color:#94a3b8;font-size:0.85em">☕ 大转盘帮到你了？</p>
+  <img src="qrcode.png" alt="赞赏码" style="width:160px;border-radius:12px;margin-top:8px">
+</div>
+
+<script>
+const questions = [
+  {q:"HashMap底层数据结构是什么？",topic:"Java基础",a:"JDK8：数组+链表+红黑树。链表超8且数组≥64转红黑树。查询复杂度O(1)到O(log n)。"},
+  {q:"ConcurrentHashMap怎么保证线程安全？",topic:"并发编程",a:"JDK8用CAS+synchronized。put时锁住bin的头节点，扩容多线程迁移。"},
+  {q:"volatile关键字的作用？",topic:"并发编程",a:"保证可见性（写立即刷新主存）和禁止指令重排序，但不保证原子性。"},
+  {q:"Spring Boot自动配置原理？",topic:"Spring框架",a:"@EnableAutoConfiguration→AutoConfigurationImportSelector→读取spring.factories→条件注解按需加载。"},
+  {q:"Redis缓存穿透怎么解决？",topic:"Redis",a:"布隆过滤器判断key是否存在+缓存空值（短TTL）。击穿用互斥锁，雪崩TTL加随机值。"},
+  {q:"MySQL索引失效场景？",topic:"数据库",a:"LIKE'%xx'+联合索引不满足最左前缀+WHERE列上函数+隐式类型转换+OR有非索引列。"},
+  {q:"@Transactional失效场景？",topic:"Spring框架",a:"非public方法+自调用this.method()+异常被catch+rollbackFor不对+数据库引擎不支持事务。"},
+  {q:"RocketMQ如何保证消息不丢？",topic:"消息队列",a:"生产端同步刷盘+sendStatus确认；Broker主从同步；消费端手动ACK+重试机制。"},
+  {q:"JVM垃圾回收算法有哪些？",topic:"JVM",a:"标记清除(碎片)、标记复制(年轻代)、标记整理(老年代)。G1：分区+Mixed GC+可预测停顿。"},
+  {q:"分布式锁Redis方案？",topic:"分布式",a:"SET NX PX原子加锁+Lua解锁。Redisson看门狗自动续期。生产注意时钟漂移。"},
+  {q:"Spring Cloud组件有哪些？",topic:"微服务",a:"Nacos(注册+配置)、Gateway(网关)、Sentinel(流控熔断)、Feign(RPC)、Seata(分布式事务)。"},
+  {q:"线程池参数怎么设？",topic:"并发编程",a:"IO密集：2N+1核；CPU密集：N+1。结合QPS和RT反推。拒绝策略：CallerRuns降级。"},
+];
+
+let spinning = false;
+let spinCount = parseInt(localStorage.getItem('roulette_spins')||'0');
+let lastDate = localStorage.getItem('roulette_date')||'';
+let streakCount = parseInt(localStorage.getItem('roulette_streak')||'0');
+
+const today = new Date().toDateString();
+if(lastDate !== today){ spinCount = 0; localStorage.setItem('roulette_spins','0'); }
+document.getElementById('spinCount').textContent = spinCount;
+
+const yesterday = new Date(Date.now()-86400000).toDateString();
+if(lastDate === yesterday) streakCount++; else if(lastDate !== today) streakCount = 0;
+localStorage.setItem('roulette_streak',streakCount);
+document.getElementById('streak').textContent = streakCount;
+
+function drawWheel() {
+  const canvas = document.getElementById('wheel');
+  const ctx = canvas.getContext('2d');
+  const colors = ['#ef4444','#f97316','#facc15','#4ade80','#38bdf8','#a78bfa','#f472b6','#fb923c','#34d399','#60a5fa','#e879f9','#fbbf24'];
+  const n = colors.length;
+  const r = 150;
+  ctx.clearRect(0,0,320,320);
+  for(let i=0;i<n;i++){
+    const angle = (2*Math.PI/n)*i - Math.PI/2;
+    const nextAngle = angle + (2*Math.PI/n);
+    ctx.beginPath();
+    ctx.moveTo(160,160);
+    ctx.arc(160,160,r,angle,nextAngle);
+    ctx.fillStyle = colors[i];
+    ctx.fill();
+    ctx.strokeStyle='#1a1a2e';
+    ctx.lineWidth=2;
+    ctx.stroke();
+    ctx.save();
+    ctx.translate(160,160);
+    ctx.rotate(angle+(2*Math.PI/n/2));
+    ctx.fillStyle='#1a1a2e';
+    ctx.font='bold 11px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText((i+1)+'题',r*0.7,5);
+    ctx.restore();
+  }
+  ctx.beginPath();
+  ctx.arc(160,160,30,0,2*Math.PI);
+  ctx.fillStyle='#1a1a2e';
+  ctx.fill();
+  ctx.fillStyle='#facc15';
+  ctx.font='bold 16px sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('🎰',160,166);
+}
+
+async function spin() {
+  if(spinning) return;
+  spinning = true;
+  const btn = document.getElementById('spinBtn');
+  btn.disabled = true;
+  btn.textContent = '🎰 旋转中...';
+  document.getElementById('result').style.display='none';
+  
+  const canvas = document.getElementById('wheel');
+  const ctx = canvas.getContext('2d');
+  const spins = 5 + Math.random()*5;
+  const targetIdx = Math.floor(Math.random()*questions.length);
+  const targetAngle = (targetIdx * (360/questions.length)) + 90 + 360*spins;
+  const duration = 3000;
+  const startTime = Date.now();
+  
+  function animate() {
+    const elapsed = Date.now()-startTime;
+    const progress = Math.min(elapsed/duration,1);
+    const ease = 1 - Math.pow(1-progress,3);
+    const currentAngle = ease * targetAngle;
+    canvas.style.transform = `rotate(${currentAngle}deg)`;
+    if(progress<1) requestAnimationFrame(animate);
+    else {
+      spinning = false;
+      btn.disabled = false;
+      btn.textContent = '🎰 开始旋转!';
+      showResult(targetIdx);
+    }
+  }
+  canvas.style.transform = 'rotate(0deg)';
+  requestAnimationFrame(animate);
+  
+  spinCount++;
+  localStorage.setItem('roulette_spins',spinCount);
+  localStorage.setItem('roulette_date',today);
+  if(lastDate !== today && lastDate === yesterday) {
+    streakCount++;
+    localStorage.setItem('roulette_streak',streakCount);
+  }
+  document.getElementById('spinCount').textContent = spinCount;
+  document.getElementById('streak').textContent = streakCount;
+}
+
+function showResult(idx) {
+  const q = questions[idx];
+  document.getElementById('questionText').textContent = '❓ '+q.q;
+  document.getElementById('topicText').textContent = '📂 '+q.topic;
+  document.getElementById('answerText').innerHTML = '<strong>答案：</strong>'+q.a;
+  document.getElementById('result').style.display='block';
+}
+
+drawWheel();
+</script>
+</body>
+</html>
